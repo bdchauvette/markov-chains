@@ -1,6 +1,6 @@
 {
   "name": "markov-chains",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "A general purpose markov chain generator",
   "jsnext:main": "src/index.js",
   "main": "dist/markov-chains.js",
