@@ -68,7 +68,7 @@ const states = [
 // build the chain
 const chain = new Chain(states);
 
-// generate sentences
+// generate a forecast
 const forecast = chain.walk();
 
 console.log(forecast);
@@ -162,7 +162,8 @@ To run the tests, just run `npm test` at the command line.
 
 - [`markovify`](https://github.com/jsvine/markovify) - The excellent python
   library that inspired `markov-chains`
-- [`general-markov`](https://github.com/TakenPilot/general-markov)
+- [`markovchain`](https://www.npmjs.com/package/markovchain)
+- [`general-markov`](https://github.com/swang/markovchain)
 - [`markov`](https://github.com/substack/node-markov)
 
 [Back to Top ↑](#readme)
