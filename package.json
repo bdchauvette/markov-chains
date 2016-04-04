@@ -9,7 +9,9 @@
     "build": "babel src/index.js -o dist/markov-chains.js",
     "clean": "rimraf dist/*",
     "lint": "eslint src/",
-    "test": "BABEL_ENV=test babel-tape-runner test/*.spec.js"
+    "test": "BABEL_ENV=test babel-tape-runner test/*.spec.js",
+    "preversion": "npm test && npm run lint",
+    "postversion": "git push && git push --tags"
   },
   "repository": {
     "type": "git",

@@ -1,4 +1,4 @@
-const Chain = require('./dist/markov-chains').default;
+const Chain = require('markov-chains').default;
 
 // our states (an array of arrays)
 const states = [
@@ -30,13 +30,7 @@ const states = [
 // build the chain
 const chain = new Chain(states);
 
-// generate sentences
-console.log(chain.walk());
+// generate a forecast
+const forecast = chain.walk();
 
-// Example output:
-//
-// [ { temp: 'warm', weather: 'sunny' },
-//   { temp: 'warm', weather: 'cloudy' },
-//   { temp: 'warm', weather: 'rainy' },
-//   { temp: 'cool', weather: 'cloudy' },
-//   { temp: 'warm', weather: 'sunny' } ]
+console.log(forecast);
