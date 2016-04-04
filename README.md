@@ -9,8 +9,8 @@
 JavaScript, and designed for both Node and the browser.
 
 Unlike many markov chain generators in JavaScript, `markov-chains` can handle
-and generate non-text data just as easily as it handles text (see
-[Examples](#example)).
+and generate non-textual data just as easily as it handles text (see
+[example](#example)).
 
 ## Table of Contents
 
@@ -33,7 +33,7 @@ and generate non-text data just as easily as it handles text (see
 
 ---
 
-## Examples
+## Example
 
 ```js
 import Chain from 'markov-chains';
@@ -86,7 +86,7 @@ console.log(forecast);
 
 ---
 
-## Installation
+## Installation & Usage
 
 ### Requirements
 
@@ -108,7 +108,7 @@ npm install --save markov-chains
 
 ### Usage (ES6+)
 
-```
+```js
 import Chain from 'markov-chains';
 const chain = new Chain(/* corpus: Array<Array<any>> */);
 ```
@@ -162,7 +162,7 @@ To run the tests, just run `npm test` at the command line.
 
 - [`markovify`](https://github.com/jsvine/markovify) - The excellent python
   library that inspired `markov-chains`
-- [`genral-markov`](https://github.com/TakenPilot/general-markov)
+- [`general-markov`](https://github.com/TakenPilot/general-markov)
 - [`markov`](https://github.com/substack/node-markov)
 
 [Back to Top ↑](#readme)
