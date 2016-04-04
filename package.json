@@ -1,0 +1,47 @@
+{
+  "name": "markov-chains",
+  "version": "1.0.0",
+  "description": "A general purpose markov chain generator",
+  "jsnext:main": "src/index.js",
+  "main": "dist/markov-chains.js",
+  "tonicExampleFilename": "example.js",
+  "scripts": {
+    "build": "babel src/index.js -o dist/markov-chains.js",
+    "clean": "rimraf dist/*",
+    "lint": "eslint src/",
+    "test": "BABEL_ENV=test babel-tape-runner test/*.spec.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/bdchauvette/markov-chains.git"
+  },
+  "keywords": [
+    "markovify",
+    "markov",
+    "markov chain",
+    "omm"
+  ],
+  "author": "Ben Chauvette <bdchauvette@gmail.com> (https://github.com/bdchauvette)",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/bdchauvette/markov-chains/issues"
+  },
+  "homepage": "https://github.com/bdchauvette/markov-chains#readme",
+  "devDependencies": {
+    "babel": "^6.5.2",
+    "babel-cli": "^6.6.5",
+    "babel-eslint": "^6.0.2",
+    "babel-plugin-rewire": "^1.0.0-rc-2",
+    "babel-preset-es2015-native-generators": "^6.6.0",
+    "babel-tape-runner": "^2.0.1",
+    "eslint": "^2.4.0",
+    "eslint-config-airbnb": "^6.2.0",
+    "eslint-plugin-babel": "^3.1.0",
+    "is-equal": "^1.5.1",
+    "rimraf": "^2.5.1",
+    "tape": "^4.5.1"
+  },
+  "dependencies": {
+    "javascript-stringify": "^1.1.0"
+  }
+}

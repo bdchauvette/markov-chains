@@ -1,0 +1,28 @@
+{
+  "parser": "babel-eslint",
+  "extends": "airbnb/base",
+  "plugins": [
+    "babel"
+  ],
+  "rules": {
+    "new-cap": [2, { "capIsNewExceptions": ["List", "IMap", "Repeat", "Range"]}],
+    "no-console": 0,
+    "no-param-reassign": [2, { "props": false }],
+    "no-use-before-define": [2, { "functions": false }],
+    "quote-props": [2, "consistent-as-needed"],
+
+    "indent": [2, 2, { "SwitchCase": 1 }],
+
+    "arrow-parens": 0,
+    "babel/arrow-parens": 1,
+
+    "object-shorthand": 0,
+    "babel/object-shorthand": 1,
+
+    "no-await-in-loop": 0,
+    "babel/no-await-in-loop": 1,
+  },
+  "globals": {
+    "Generator": false
+  }
+}
