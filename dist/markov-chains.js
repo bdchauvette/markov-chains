@@ -19,13 +19,29 @@ function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 
 /**
- * Constants used to pad states from the beginning and end of a corpus
+ * Constant used to pad the beginning of runs in a corpus
+ *
+ * @private
+ * @constant
+ * @type string
  */
 var BEGIN = '@@MARKOV_CHAIN_BEGIN';
+
+/**
+ * Constant used to pad the end of runs in a corpus
+ *
+ * @private
+ * @constant
+ * @type string
+ */
 var END = '@@MARKOV_CHAIN_END';
 
 /**
  * The default state size
+ *
+ * @private
+ * @constant
+ * @type number
  */
 var DEFAULT_STATE_SIZE = 1;
 
@@ -59,6 +75,11 @@ var Chain = function () {
    * possible states, and point to the inner Map. The inner Maps represent all
    * possibilities for the 'next' item in the chain, along with the count of
    * times it appears.
+   *
+   * @param {any[][]} corpus The corpus to use to build the chain
+   * @param {Object} [opts] Options object
+   * @param {number} [opts.stateSize=1] The state size of the object
+   * @return {Model}
    */
 
 
@@ -67,8 +88,19 @@ var Chain = function () {
 
 
     /**
-     * Converts the model to a 2D array, which can then be serialized by
-     * JSON.stringify
+     * Serialize the Chain. Rather than serializing the entire Chain, we only
+     * convert its Markov model.
+     *
+     * Note that this method does not return a string, but a multidimensional
+     * array that can be consumed and stringified by `JSON.stringify`. This is
+     * the expected behavior of `toJSON` methods.
+     *
+     * The returned Object will have the shape:
+     *
+     *   [[stateKey, [[followKey, { value, count }], ...  ]], ...]
+     *
+     * @see [MDN]{https://mdn.io/stringify#toJSON()_behavior}
+     * @see [2ality]{http://www.2ality.com/2015/08/es6-map-json.html}
      */
     value: function toJSON() {
       var serialized = [];
@@ -107,6 +139,9 @@ var Chain = function () {
     /**
      * Given a state, chooses the next item at random, with a bias towards next
      * states with higher weights
+     *
+     * @param {any} [fromState] The state to move from
+     * @return {any} A next item from the chain
      */
 
   }, {
@@ -122,66 +157,18 @@ var Chain = function () {
       var choices = [];
       var weights = [];
 
-      state.forEach(function (follow) {
-        choices.push(follow.value);
-        weights.push(follow.count);
-      });
-
-      var cumulativeDistribution = weights.reduce(function (cumWeights, currWeight) {
-        var sum = last(cumWeights) || 0;
-        return [].concat(_toConsumableArray(cumWeights), [sum + currWeight]);
-      }, []);
-
-      var r = Math.random() * last(cumulativeDistribution);
-      var randomIndex = bisect(cumulativeDistribution, r);
-
-      var nextMove = choices[randomIndex];
-
-      return nextMove;
-    }
-
-    /**
-     * Generates successive items until the chain reaches the END state
-     */
-
-  }, {
-    key: 'generate',
-    value: function* generate() {
-      var beginState = arguments.length <= 0 || arguments[0] === undefined ? createBeginState(this.stateSize) : arguments[0];
-
-      var state = beginState;
-
-      for (;;) {
-        var step = this.move(state);
-
-        if (step === undefined || step === END) {
-          break;
-        } else {
-          yield step;
-          state = [].concat(_toConsumableArray(state.slice(1)), [step]);
-        }
-      }
-    }
-
-    /**
-     * Performs a single run of the Markov model, optionally starting from the
-     * provided `beginState`
-     */
-
-  }, {
-    key: 'walk',
-    value: function walk(beginState) {
-      var steps = [];
-
       var _iteratorNormalCompletion2 = true;
       var _didIteratorError2 = false;
       var _iteratorError2 = undefined;
 
       try {
-        for (var _iterator2 = this.generate(beginState)[Symbol.iterator](), _step2; !(_iteratorNormalCompletion2 = (_step2 = _iterator2.next()).done); _iteratorNormalCompletion2 = true) {
-          var step = _step2.value;
+        for (var _iterator2 = state.values()[Symbol.iterator](), _step2; !(_iteratorNormalCompletion2 = (_step2 = _iterator2.next()).done); _iteratorNormalCompletion2 = true) {
+          var _step2$value = _step2.value;
+          var value = _step2$value.value;
+          var count = _step2$value.count;
 
-          steps.push(step);
+          choices.push(value);
+          weights.push(count);
         }
       } catch (err) {
         _didIteratorError2 = true;
@@ -198,6 +185,56 @@ var Chain = function () {
         }
       }
 
+      var cumulativeDistribution = weights.reduce(function (cumWeights, currWeight) {
+        var sum = last(cumWeights) || 0;
+        return [].concat(_toConsumableArray(cumWeights), [sum + currWeight]);
+      }, []);
+
+      var r = Math.random() * last(cumulativeDistribution);
+      var randomIndex = bisect(cumulativeDistribution, r);
+
+      var nextMove = choices[randomIndex];
+
+      return nextMove;
+    }
+
+    /**
+     * Generates successive items until the chain reaches the END state
+     *
+     * @param fromState {any} [fromState] The state to begin generating from
+     * @yield {any} The next item in the chain
+     */
+
+  }, {
+    key: 'generate',
+    value: function* generate() {
+      var fromState = arguments.length <= 0 || arguments[0] === undefined ? createBeginState(this.stateSize) : arguments[0];
+
+      var state = fromState;
+
+      for (;;) {
+        var step = this.move(state);
+
+        if (step === undefined || step === END) {
+          return;
+        }
+
+        yield step;
+        state = [].concat(_toConsumableArray(state.slice(1)), [step]);
+      }
+    }
+
+    /**
+     * Performs a single run of the Markov model, optionally starting from the
+     * provided `fromState`
+     *
+     * @param fromState {any} [fromState] The state to begin generating from
+     */
+
+  }, {
+    key: 'walk',
+    value: function walk(fromState) {
+      var steps = [].concat(_toConsumableArray(this.generate(fromState)));
       return steps;
     }
   }], [{
@@ -213,42 +250,67 @@ var Chain = function () {
       }
 
       var model = new Map();
+      var beginPadding = createBeginState(stateSize);
 
-      corpus.forEach(function (run) {
-        if (!Array.isArray(run)) {
-          throw new Error('Invalid run in corpus: Must be an array');
-        }
+      var _iteratorNormalCompletion3 = true;
+      var _didIteratorError3 = false;
+      var _iteratorError3 = undefined;
 
-        var paddedRun = [].concat(_toConsumableArray(createBeginState(stateSize)), _toConsumableArray(run), [END]);
+      try {
+        for (var _iterator3 = corpus[Symbol.iterator](), _step3; !(_iteratorNormalCompletion3 = (_step3 = _iterator3.next()).done); _iteratorNormalCompletion3 = true) {
+          var run = _step3.value;
 
-        // add one to original run size to account for END state
-        for (var ngramStart = 0; ngramStart < run.length + 1; ngramStart++) {
-          var ngramEnd = ngramStart + stateSize;
-
-          var stateKey = createStateKey(paddedRun.slice(ngramStart, ngramEnd));
-          var follow = paddedRun[ngramEnd];
-          var followKey = (0, _javascriptStringify2.default)(follow);
-
-          if (!model.has(stateKey)) {
-            model.set(stateKey, new Map());
+          if (!Array.isArray(run)) {
+            throw new Error('Invalid run in corpus: Must be an array');
           }
 
-          var stateMap = model.get(stateKey);
+          var paddedRun = [].concat(_toConsumableArray(beginPadding), _toConsumableArray(run), [END]);
 
-          if (!stateMap.has(followKey)) {
-            stateMap.set(followKey, { value: follow, count: 0 });
+          // add one to original run size to account for END state.
+          for (var ngramStart = 0; ngramStart < run.length + 1; ngramStart++) {
+            var ngramEnd = ngramStart + stateSize;
+
+            var stateKey = createStateKey(paddedRun.slice(ngramStart, ngramEnd));
+            var follow = paddedRun[ngramEnd];
+            var followKey = (0, _javascriptStringify2.default)(follow);
+
+            if (!model.has(stateKey)) {
+              model.set(stateKey, new Map());
+            }
+
+            var stateMap = model.get(stateKey);
+
+            if (!stateMap.has(followKey)) {
+              stateMap.set(followKey, { value: follow, count: 0 });
+            }
+
+            var followMap = stateMap.get(followKey);
+            followMap.count += 1;
           }
-
-          var followMap = stateMap.get(followKey);
-          followMap.count += 1;
         }
-      });
+      } catch (err) {
+        _didIteratorError3 = true;
+        _iteratorError3 = err;
+      } finally {
+        try {
+          if (!_iteratorNormalCompletion3 && _iterator3.return) {
+            _iterator3.return();
+          }
+        } finally {
+          if (_didIteratorError3) {
+            throw _iteratorError3;
+          }
+        }
+      }
 
       return model;
     }
 
     /**
      * Creates a Chain instance by hydrating the model from a JSON string
+     *
+     * @param {string} jsonData A serialized chain to hydrate
+     * @return {Chain} A hydrated Chain instance
      */
 
   }, {
@@ -260,7 +322,7 @@ var Chain = function () {
 
       var stateSize = void 0;
 
-      var states = JSON.parse(jsonData).map(function (_ref3) {
+      var states = JSON.parse(jsonData).map(function (_ref3, index) {
         var _ref4 = _slicedToArray(_ref3, 2);
 
         var stateKey = _ref4[0];
@@ -268,8 +330,9 @@ var Chain = function () {
 
         var currentStateSize = getStateSize(stateKey);
 
-        // Ensure that each state in the chain has a consistent size
-        if (!stateSize) {
+        // Ensure that each state in the chain has a consistent size, as defined
+        // by the length of the first hydrated state object
+        if (index === 0) {
           stateSize = currentStateSize;
         } else if (currentStateSize !== stateSize) {
           throw new Error('Inconsistent state size. ' + ('Expected ' + stateSize + ' but got ' + currentStateSize + ' (' + stateKey + ').'));
@@ -280,30 +343,30 @@ var Chain = function () {
         // Clone the `followData` object so that the garbage collector doesn't
         // keep the temporary hydrated states array laying around because the new
         // chain references objects it contains.
-        var _iteratorNormalCompletion3 = true;
-        var _didIteratorError3 = false;
-        var _iteratorError3 = undefined;
+        var _iteratorNormalCompletion4 = true;
+        var _didIteratorError4 = false;
+        var _iteratorError4 = undefined;
 
         try {
-          for (var _iterator3 = follow[Symbol.iterator](), _step3; !(_iteratorNormalCompletion3 = (_step3 = _iterator3.next()).done); _iteratorNormalCompletion3 = true) {
-            var _step3$value = _slicedToArray(_step3.value, 2);
+          for (var _iterator4 = follow[Symbol.iterator](), _step4; !(_iteratorNormalCompletion4 = (_step4 = _iterator4.next()).done); _iteratorNormalCompletion4 = true) {
+            var _step4$value = _slicedToArray(_step4.value, 2);
 
-            var followKey = _step3$value[0];
-            var followData = _step3$value[1];
+            var followKey = _step4$value[0];
+            var followData = _step4$value[1];
 
             followMap.set(followKey, Object.assign({}, followData));
           }
         } catch (err) {
-          _didIteratorError3 = true;
-          _iteratorError3 = err;
+          _didIteratorError4 = true;
+          _iteratorError4 = err;
         } finally {
           try {
-            if (!_iteratorNormalCompletion3 && _iterator3.return) {
-              _iterator3.return();
+            if (!_iteratorNormalCompletion4 && _iterator4.return) {
+              _iterator4.return();
             }
           } finally {
-            if (_didIteratorError3) {
-              throw _iteratorError3;
+            if (_didIteratorError4) {
+              throw _iteratorError4;
             }
           }
         }
@@ -322,15 +385,31 @@ var Chain = function () {
 
 /**
  * Creates a state that can be used to look up transitions in the model
+ *
+ * This method is intended to be passed an array whose length is equal to a
+ * chain's `stateSize`, e.g.:
+ *
+ *   createStateKey(['foo', 'bar']);
+ *
+ * However, when the `stateSize` is one, it can seem a bit silly to have to
+ * pass in an array with a single item. To make things simpler to use, we
+ * therefore convert any single, non-array argument to arrays.
+ *
+ * This has the consequence that if your Chain's stateSize is 1, and you are
+ * looking for a state that actually is an array, you need to explicitly wrap
+ * it in an outer array, e.g.:
+ *
+ *   createStatekey([['foobar']]); // -> '"[\'foobar\']"'
+ *
+ * @private
+ * @param {any|any[]} originalState The original state object
+ * @return {string} The stringified state object, suitable for use as a Map key
  */
 
 
 exports.default = Chain;
-function createStateKey(fromState) {
-  // When the `stateSize` is one, it can seem a bit silly to have to pass in an
-  // array with a single item. To make things simpler to use, we therefore
-  // convert any single, non-array argument to arrays.
-  var state = Array.isArray(fromState) ? fromState : [fromState];
+function createStateKey(originalState) {
+  var state = Array.isArray(originalState) ? originalState : [originalState];
 
   // Using `JSON.stringify` here allows us to programmatically determine the
   // original `stateSize` when we restore a chain from JSON. If we were to use
@@ -342,19 +421,20 @@ function createStateKey(fromState) {
 
 /**
  * Creates inital `BEGIN` states to use for padding at the beginning of runs
+ *
+ * @private
+ * @param {number} stateSize How many states to create
  */
 function createBeginState(stateSize) {
-  var beginStates = new Array(stateSize);
-
-  for (var i = 0; i < stateSize; i++) {
-    beginStates[i] = BEGIN;
-  }
-
-  return beginStates;
+  return new Array(stateSize).fill(BEGIN);
 }
 
 /**
  * Gets the last item in an array
+ *
+ * @private
+ * @param {Array} arr The array to take from
+ * @return {any}
  */
 function last(arr) {
   return arr[arr.length - 1];

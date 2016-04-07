@@ -1,13 +1,29 @@
 import serialize from 'javascript-stringify';
 
 /**
- * Constants used to pad states from the beginning and end of a corpus
+ * Constant used to pad the beginning of runs in a corpus
+ *
+ * @private
+ * @constant
+ * @type string
  */
 const BEGIN = '@@MARKOV_CHAIN_BEGIN';
+
+/**
+ * Constant used to pad the end of runs in a corpus
+ *
+ * @private
+ * @constant
+ * @type string
+ */
 const END = '@@MARKOV_CHAIN_END';
 
 /**
  * The default state size
+ *
+ * @private
+ * @constant
+ * @type number
  */
 const DEFAULT_STATE_SIZE = 1;
 
@@ -36,6 +52,11 @@ export default class Chain {
    * possible states, and point to the inner Map. The inner Maps represent all
    * possibilities for the 'next' item in the chain, along with the count of
    * times it appears.
+   *
+   * @param {any[][]} corpus The corpus to use to build the chain
+   * @param {Object} [opts] Options object
+   * @param {number} [opts.stateSize=1] The state size of the object
+   * @return {Model}
    */
   static build(
     corpus,
@@ -46,15 +67,16 @@ export default class Chain {
     }
 
     const model = new Map();
+    const beginPadding = createBeginState(stateSize);
 
-    corpus.forEach((run) => {
+    for (const run of corpus) {
       if (!Array.isArray(run)) {
         throw new Error('Invalid run in corpus: Must be an array');
       }
 
-      const paddedRun = [...createBeginState(stateSize), ...run, END];
+      const paddedRun = [...beginPadding, ...run, END];
 
-      // add one to original run size to account for END state
+      // add one to original run size to account for END state.
       for (let ngramStart = 0; ngramStart < run.length + 1; ngramStart++) {
         const ngramEnd = ngramStart + stateSize;
 
@@ -75,24 +97,28 @@ export default class Chain {
         const followMap = stateMap.get(followKey);
         followMap.count += 1;
       }
-    });
+    }
 
     return model;
   }
 
   /**
    * Creates a Chain instance by hydrating the model from a JSON string
+   *
+   * @param {string} jsonData A serialized chain to hydrate
+   * @return {Chain} A hydrated Chain instance
    */
   static fromJSON(jsonData) {
     const getStateSize = (stateKey) => JSON.parse(stateKey).length;
 
     let stateSize;
 
-    const states = JSON.parse(jsonData).map(([stateKey, follow]) => {
+    const states = JSON.parse(jsonData).map(([stateKey, follow], index) => {
       const currentStateSize = getStateSize(stateKey);
 
-      // Ensure that each state in the chain has a consistent size
-      if (!stateSize) {
+      // Ensure that each state in the chain has a consistent size, as defined
+      // by the length of the first hydrated state object
+      if (index === 0) {
         stateSize = currentStateSize;
       } else if (currentStateSize !== stateSize) {
         throw new Error(
@@ -117,8 +143,19 @@ export default class Chain {
   }
 
   /**
-   * Converts the model to a 2D array, which can then be serialized by
-   * JSON.stringify
+   * Serialize the Chain. Rather than serializing the entire Chain, we only
+   * convert its Markov model.
+   *
+   * Note that this method does not return a string, but a multidimensional
+   * array that can be consumed and stringified by `JSON.stringify`. This is
+   * the expected behavior of `toJSON` methods.
+   *
+   * The returned Object will have the shape:
+   *
+   *   [[stateKey, [[followKey, { value, count }], ...  ]], ...]
+   *
+   * @see [MDN]{https://mdn.io/stringify#toJSON()_behavior}
+   * @see [2ality]{http://www.2ality.com/2015/08/es6-map-json.html}
    */
   toJSON() {
     const serialized = [];
@@ -133,6 +170,9 @@ export default class Chain {
   /**
    * Given a state, chooses the next item at random, with a bias towards next
    * states with higher weights
+   *
+   * @param {any} [fromState] The state to move from
+   * @return {any} A next item from the chain
    */
   move(fromState) {
     const stateKey = createStateKey(fromState);
@@ -145,16 +185,15 @@ export default class Chain {
     const choices = [];
     const weights = [];
 
-    state.forEach((follow) => {
-      choices.push(follow.value);
-      weights.push(follow.count);
-    });
+    for (const { value, count } of state.values()) {
+      choices.push(value);
+      weights.push(count);
+    }
 
-    const cumulativeDistribution = weights.reduce(
-      (cumWeights, currWeight) => {
-        const sum = last(cumWeights) || 0;
-        return [...cumWeights, (sum + currWeight)];
-      }, []);
+    const cumulativeDistribution = weights.reduce((cumWeights, currWeight) => {
+      const sum = last(cumWeights) || 0;
+      return [...cumWeights, (sum + currWeight)];
+    }, []);
 
     const r = Math.random() * last(cumulativeDistribution);
     const randomIndex = bisect(cumulativeDistribution, r);
@@ -166,33 +205,33 @@ export default class Chain {
 
   /**
    * Generates successive items until the chain reaches the END state
+   *
+   * @param fromState {any} [fromState] The state to begin generating from
+   * @yield {any} The next item in the chain
    */
-  *generate(beginState = createBeginState(this.stateSize)) {
-    let state = beginState;
+  *generate(fromState = createBeginState(this.stateSize)) {
+    let state = fromState;
 
     for (;;) {
       const step = this.move(state);
 
       if (step === undefined || step === END) {
-        break;
-      } else {
-        yield step;
-        state = [...state.slice(1), step];
+        return;
       }
+
+      yield step;
+      state = [...state.slice(1), step];
     }
   }
 
   /**
    * Performs a single run of the Markov model, optionally starting from the
-   * provided `beginState`
+   * provided `fromState`
+   *
+   * @param fromState {any} [fromState] The state to begin generating from
    */
-  walk(beginState) {
-    const steps = [];
-
-    for (const step of this.generate(beginState)) {
-      steps.push(step);
-    }
-
+  walk(fromState) {
+    const steps = [...this.generate(fromState)];
     return steps;
   }
 }
@@ -201,14 +240,30 @@ export default class Chain {
 
 /**
  * Creates a state that can be used to look up transitions in the model
+ *
+ * This method is intended to be passed an array whose length is equal to a
+ * chain's `stateSize`, e.g.:
+ *
+ *   createStateKey(['foo', 'bar']);
+ *
+ * However, when the `stateSize` is one, it can seem a bit silly to have to
+ * pass in an array with a single item. To make things simpler to use, we
+ * therefore convert any single, non-array argument to arrays.
+ *
+ * This has the consequence that if your Chain's stateSize is 1, and you are
+ * looking for a state that actually is an array, you need to explicitly wrap
+ * it in an outer array, e.g.:
+ *
+ *   createStatekey([['foobar']]); // -> '"[\'foobar\']"'
+ *
+ * @private
+ * @param {any|any[]} originalState The original state object
+ * @return {string} The stringified state object, suitable for use as a Map key
  */
-function createStateKey(fromState) {
-  // When the `stateSize` is one, it can seem a bit silly to have to pass in an
-  // array with a single item. To make things simpler to use, we therefore
-  // convert any single, non-array argument to arrays.
-  const state = (Array.isArray(fromState))
-    ? fromState
-    : [fromState];
+function createStateKey(originalState) {
+  const state = (Array.isArray(originalState))
+    ? originalState
+    : [originalState];
 
   // Using `JSON.stringify` here allows us to programmatically determine the
   // original `stateSize` when we restore a chain from JSON. If we were to use
@@ -220,19 +275,20 @@ function createStateKey(fromState) {
 
 /**
  * Creates inital `BEGIN` states to use for padding at the beginning of runs
+ *
+ * @private
+ * @param {number} stateSize How many states to create
  */
 function createBeginState(stateSize) {
-  const beginStates = new Array(stateSize);
-
-  for (let i = 0; i < stateSize; i++) {
-    beginStates[i] = BEGIN;
-  }
-
-  return beginStates;
+  return new Array(stateSize).fill(BEGIN);
 }
 
 /**
  * Gets the last item in an array
+ *
+ * @private
+ * @param {Array} arr The array to take from
+ * @return {any}
  */
 function last(arr) {
   return arr[arr.length - 1];

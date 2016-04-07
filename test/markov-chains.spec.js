@@ -41,7 +41,7 @@ test('building models from text corpora', (t) => {
 
   t.ok(
     testModel instanceof Map,
-    'Should return an immutable hash map'
+    'Should return a hash map'
   );
 
   t.ok(
